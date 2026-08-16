@@ -358,7 +358,7 @@ export function Dashboard() {
                     </div>
 
                     {/* Messages Scroll Area */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                       {messages.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-xs text-slate-400">
                           No messages yet in this session.
@@ -366,16 +366,27 @@ export function Dashboard() {
                       ) : (
                         messages.map((msg) => {
                           const isMerchant = msg.sender === user?.uid;
+                          const formattedTime = msg.timestamp?.toDate
+                            ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : "Just now";
+
                           return (
-                            <div key={msg.id} className={`flex ${isMerchant ? "justify-end" : "justify-start"}`}>
+                            <div key={msg.id} className={`flex flex-col ${isMerchant ? "items-end" : "items-start"}`}>
+                              <div className="flex items-center gap-1.5 mb-1 px-1">
+                                <span className={`text-[10px] font-semibold ${isMerchant ? "text-indigo-600" : "text-slate-500"}`}>
+                                  {isMerchant ? "You (Support Agent)" : `Visitor (${selectedSession.userId.substring(0, 6)}...)`}
+                                </span>
+                                <span className="text-[10px] text-slate-400">•</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{formattedTime}</span>
+                              </div>
                               <div
-                                className={`max-w-[70%] px-4 py-2.5 rounded-lg text-xs leading-relaxed ${
+                                className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed ${
                                   isMerchant
-                                    ? "bg-indigo-600 text-white font-normal"
-                                    : "bg-white text-slate-800 border border-slate-200"
+                                    ? "bg-indigo-600 text-white font-normal rounded-tr-xs"
+                                    : "bg-white text-slate-800 border border-slate-200 rounded-tl-xs shadow-xs"
                                 }`}
                               >
-                                <p>{msg.text}</p>
+                                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                               </div>
                             </div>
                           );
