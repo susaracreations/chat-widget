@@ -386,20 +386,6 @@ export function ChatWidget({
     transition: "transform 0.15s ease",
   };
 
-  // CSAT Rating Card Styles
-  const csatCardStyle: React.CSSProperties = {
-    backgroundColor: isDark ? "#1e293b" : "#ffffff",
-    border: `1px solid ${borderCol}`,
-    borderRadius: `${mergedConfig.borderRadius}px`,
-    padding: "16px",
-    margin: "10px 0",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "10px",
-    textAlign: "center",
-  };
-
   if (authLoading && !isInlinePreview) return null;
 
   return (
@@ -478,72 +464,191 @@ export function ChatWidget({
             );
           })}
 
-          {/* CSAT Customer Satisfaction Prompt when chat is closed */}
+          {/* Advanced CSAT Customer Satisfaction Prompt Card */}
           {sessionStatus === "closed" && (
-            <div style={csatCardStyle}>
-              <div style={{ fontWeight: 600, fontSize: "13px", color: textMain }}>
-                {ratingSubmitted ? "Thank you for your rating!" : "How would you rate our support?"}
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    disabled={ratingSubmitted}
-                    onClick={() => setSelectedStars(star)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: ratingSubmitted ? "default" : "pointer",
-                      padding: "2px",
-                      color: (existingRating || selectedStars) >= star ? "#f59e0b" : "#cbd5e1",
-                      transition: "transform 0.1s ease",
-                    }}
-                  >
-                    <svg style={{ width: "24px", height: "24px" }} fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                    </svg>
-                  </button>
-                ))}
+            <div
+              style={{
+                backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
+                borderRadius: `${Math.max(10, mergedConfig.borderRadius - 2)}px`,
+                padding: "18px 16px",
+                margin: "12px 0 6px 0",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "12px",
+                textAlign: "center",
+              }}
+            >
+              {/* Badge & Header */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    padding: "3px 9px",
+                    borderRadius: "12px",
+                    backgroundColor: isDark ? "#064e3b" : "#ecfdf5",
+                    border: `1px solid ${isDark ? "#047857" : "#a7f3d0"}`,
+                    color: isDark ? "#6ee7b7" : "#047857",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  <svg style={{ width: "12px", height: "12px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Chat Resolved</span>
+                </div>
+                <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: textMain, letterSpacing: "-0.01em" }}>
+                  {ratingSubmitted ? "Thank you for your feedback!" : "How was our support service?"}
+                </h4>
+                <p style={{ margin: 0, fontSize: "11.5px", color: textMuted, lineHeight: "1.4" }}>
+                  {ratingSubmitted
+                    ? "Your feedback helps us continuously improve our customer experience."
+                    : "Please take a moment to rate your conversation with our team."}
+                </p>
               </div>
 
+              {/* Star Rating Selector */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: "100%" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "6px 12px",
+                    borderRadius: "24px",
+                    backgroundColor: isDark ? "#0f172a" : "#f8fafc",
+                    border: `1px solid ${borderCol}`,
+                  }}
+                >
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const isFilled = (existingRating || selectedStars) >= star;
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        disabled={ratingSubmitted}
+                        onClick={() => setSelectedStars(star)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: ratingSubmitted ? "default" : "pointer",
+                          padding: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: isFilled ? "#f59e0b" : isDark ? "#475569" : "#cbd5e1",
+                          transition: "color 0.15s ease",
+                        }}
+                        aria-label={`Rate ${star} stars`}
+                      >
+                        <svg
+                          style={{ width: "26px", height: "26px" }}
+                          fill={isFilled ? "#f59e0b" : "none"}
+                          stroke={isFilled ? "#f59e0b" : "currentColor"}
+                          strokeWidth={1.5}
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                          />
+                        </svg>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Rating Label Text */}
+                <div style={{ fontSize: "11px", fontWeight: 600, color: "#f59e0b" }}>
+                  {(existingRating || selectedStars) === 5 && "⭐ Excellent - Perfect support!"}
+                  {(existingRating || selectedStars) === 4 && "Great service, thank you"}
+                  {(existingRating || selectedStars) === 3 && "Average experience"}
+                  {(existingRating || selectedStars) === 2 && "Could be better"}
+                  {(existingRating || selectedStars) === 1 && "Poor experience"}
+                </div>
+              </div>
+
+              {/* Form or Result View */}
               {!ratingSubmitted ? (
-                <form onSubmit={handleRatingSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                <form
+                  onSubmit={handleRatingSubmit}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    marginTop: "2px",
+                  }}
+                >
                   <input
                     type="text"
-                    placeholder="Optional feedback..."
+                    placeholder="Tell us what you liked or what to improve (optional)..."
                     value={ratingComment}
                     onChange={(e) => setRatingComment(e.target.value)}
                     style={{
+                      width: "100%",
                       border: `1px solid ${borderCol}`,
-                      borderRadius: "8px",
-                      padding: "6px 10px",
+                      borderRadius: `${Math.max(6, mergedConfig.borderRadius - 6)}px`,
+                      padding: "8px 12px",
                       fontSize: "12px",
-                      backgroundColor: bgMain,
+                      backgroundColor: isDark ? "#0f172a" : "#f8fafc",
                       color: textMain,
                       outline: "none",
+                      boxSizing: "border-box",
                     }}
                   />
                   <button
                     type="submit"
                     style={{
+                      width: "100%",
                       backgroundColor: mergedConfig.primaryColor,
                       color: "#ffffff",
                       border: "none",
-                      borderRadius: "8px",
-                      padding: "6px 12px",
+                      borderRadius: `${Math.max(6, mergedConfig.borderRadius - 6)}px`,
+                      padding: "9px 14px",
                       fontSize: "12px",
                       fontWeight: 600,
                       cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      transition: "opacity 0.15s ease",
                     }}
                   >
-                    Submit Rating
+                    <span>Submit Rating</span>
+                    <svg style={{ width: "13px", height: "13px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
                   </button>
                 </form>
               ) : (
-                <p style={{ fontSize: "11px", color: textMuted }}>
-                  Your feedback helps us provide better service.
-                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: isDark ? "#0f172a" : "#f1f5f9",
+                    color: textMuted,
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  <svg style={{ width: "13px", height: "13px", color: "#10b981" }} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Review recorded in support console</span>
+                </div>
               )}
             </div>
           )}

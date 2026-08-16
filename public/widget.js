@@ -432,28 +432,53 @@
         csatContainer.style.display = "flex";
         if (data.rating) {
           csatContainer.innerHTML = `
-            <div style="font-weight:600;font-size:13px;color:${textMain};">Thank you for rating us!</div>
-            <div style="display:flex;gap:4px;color:#f59e0b;">
+            <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;background-color:${isDark ? "#064e3b" : "#ecfdf5"};border:1px solid ${isDark ? "#047857" : "#a7f3d0"};color:${isDark ? "#6ee7b7" : "#047857"};font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">
+              <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              <span>Feedback Recorded</span>
+            </div>
+            <div style="font-weight:700;font-size:14px;color:${textMain};margin-top:4px;">Thank you for your feedback!</div>
+            <div style="display:flex;gap:5px;color:#f59e0b;padding:4px 10px;background-color:${isDark ? "#0f172a" : "#f8fafc"};border-radius:20px;border:1px solid ${borderCol};">
               ${[1, 2, 3, 4, 5].map(s => `<svg style="width:20px;height:20px;" fill="${s <= data.rating ? '#f59e0b' : '#cbd5e1'}" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`).join("")}
             </div>
-            <p style="font-size:11px;color:${textMuted};margin:0;">Your feedback helps us provide better service.</p>
+            <p style="font-size:11.5px;color:${textMuted};margin:0;line-height:1.4;">Your feedback helps us continuously improve our customer experience.</p>
           `;
         } else {
           csatContainer.innerHTML = `
-            <div style="font-weight:600;font-size:13px;color:${textMain};">How would you rate our support?</div>
-            <div id="sc-star-row" style="display:flex;gap:6px;cursor:pointer;">
-              ${[1, 2, 3, 4, 5].map(s => `<svg data-star="${s}" style="width:24px;height:24px;color:#f59e0b;" fill="#f59e0b" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`).join("")}
+            <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;background-color:${isDark ? "#064e3b" : "#ecfdf5"};border:1px solid ${isDark ? "#047857" : "#a7f3d0"};color:${isDark ? "#6ee7b7" : "#047857"};font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">
+              <svg style="width:12px;height:12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              <span>Chat Resolved</span>
             </div>
-            <input id="sc-rating-input" type="text" placeholder="Optional feedback..." style="width:100%;border:1px solid ${borderCol};border-radius:8px;padding:6px 10px;font-size:12px;background-color:${bgMain};color:${textMain};box-sizing:border-box;outline:none;" />
-            <button id="sc-submit-rating-btn" style="background-color:${config.primaryColor};color:#ffffff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Submit Rating</button>
+            <div style="font-weight:700;font-size:14px;color:${textMain};letter-spacing:-0.01em;">How was our support service?</div>
+            <p style="margin:0;font-size:11.5px;color:${textMuted};line-height:1.4;">Please take a moment to rate your conversation with our team.</p>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;border-radius:24px;background-color:${isDark ? "#0f172a" : "#f8fafc"};border:1px solid ${borderCol};">
+              <div id="sc-star-row" style="display:flex;gap:6px;cursor:pointer;">
+                ${[1, 2, 3, 4, 5].map(s => `<svg data-star="${s}" style="width:26px;height:26px;color:#f59e0b;" fill="#f59e0b" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`).join("")}
+              </div>
+            </div>
+            <div id="sc-rating-desc" style="font-size:11px;font-weight:600;color:#f59e0b;">⭐ Excellent - Perfect support!</div>
+            <input id="sc-rating-input" type="text" placeholder="Tell us what you liked or what to improve (optional)..." style="width:100%;border:1px solid ${borderCol};border-radius:8px;padding:8px 12px;font-size:12px;background-color:${isDark ? "#0f172a" : "#f8fafc"};color:${textMain};box-sizing:border-box;outline:none;" />
+            <button id="sc-submit-rating-btn" style="width:100%;background-color:${config.primaryColor};color:#ffffff;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>Submit Rating</span>
+              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
           `;
 
           const starRow = document.getElementById("sc-star-row");
+          const ratingDesc = document.getElementById("sc-rating-desc");
+          const descriptions = {
+            5: "⭐ Excellent - Perfect support!",
+            4: "Great service, thank you",
+            3: "Average experience",
+            2: "Could be better",
+            1: "Poor experience",
+          };
+
           if (starRow) {
             starRow.querySelectorAll("svg").forEach((svg) => {
-              svg.onclick = (e) => {
+              svg.onclick = () => {
                 const starVal = parseInt(svg.getAttribute("data-star") || "5", 10);
                 selectedRating = starVal;
+                if (ratingDesc) ratingDesc.innerText = descriptions[starVal] || "";
                 starRow.querySelectorAll("svg").forEach((s) => {
                   const val = parseInt(s.getAttribute("data-star") || "0", 10);
                   s.setAttribute("fill", val <= starVal ? "#f59e0b" : "#cbd5e1");
