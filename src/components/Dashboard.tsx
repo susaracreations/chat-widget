@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useWebsites, type Website, type WidgetConfig, defaultWidgetConfig } from "../hooks/useWebsites";
-import { useSessions, type Session } from "../hooks/useSessions";
+import { useSessions } from "../hooks/useSessions";
 import { useChat } from "../hooks/useChat";
 import { useAuth } from "../hooks/useAuth";
 import { ChatWidget } from "./ChatWidget";
@@ -26,9 +27,28 @@ import {
 } from "lucide-react";
 
 export function Dashboard() {
+  const { tab: urlTab, siteId: urlSiteId, sessionId: urlSessionId } = useParams<{ tab?: string; siteId?: string; sessionId?: string }>();
+  const navigate = useNavigate();
+
   const { websites, loading: websitesLoading, addWebsite, updateWebsite, deleteWebsite } = useWebsites();
-  const [selectedSiteId, setSelectedSiteId] = useState<string>("all");
   
+  // URL-driven states
+  const activeTab: "chats" | "websites" | "customizer" = 
+    urlTab === "websites" || urlTab === "customizer" ? urlTab : "chats";
+  const selectedSiteId = urlSiteId || "all";
+  
+  // Helper to safely navigate preserving or updating URL segments
+  const navigateTo = (newTab: "chats" | "websites" | "customizer", newSiteId: string = selectedSiteId, newSessionId?: string) => {
+    let path = `/dashboard/${newTab}`;
+    if (newSiteId && (newSiteId !== "all" || newSessionId)) {
+      path += `/${newSiteId}`;
+    }
+    if (newSessionId) {
+      path += `/${newSessionId}`;
+    }
+    navigate(path);
+  };
+
   // Find selected site object (or default to first if single site selected)
   const currentWebsite = useMemo(() => {
     if (selectedSiteId === "all") return websites[0] || null;
@@ -37,9 +57,14 @@ export function Dashboard() {
 
   const { sessions, loading: sessionsLoading } = useSessions(selectedSiteId, websites);
   const { user } = useAuth();
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  
+  // URL-synchronized active session
+  const selectedSession = useMemo(() => {
+    if (!urlSessionId) return null;
+    return sessions.find(s => s.id === urlSessionId || s.userId === urlSessionId) || null;
+  }, [sessions, urlSessionId]);
+
   const [replyText, setReplyText] = useState("");
-  const [activeTab, setActiveTab] = useState<"chats" | "websites" | "customizer">("chats");
 
   // Chat hook targeting the active session's merchantId/website
   const activeMerchantId = selectedSession?.merchantId || (selectedSiteId === "all" ? currentWebsite?.id : selectedSiteId) || "my-custom-chat-app";
@@ -106,7 +131,7 @@ export function Dashboard() {
       setNewSiteName("");
       setNewSiteDomain("");
       setIsAddModalOpen(false);
-      setSelectedSiteId(created.id);
+      navigateTo("websites", created.id);
     } catch (err) {
       console.error("Failed to add website:", err);
     } finally {
@@ -149,7 +174,7 @@ export function Dashboard() {
     if (confirm(`Are you sure you want to delete "${site.name}"? This action cannot be undone.`)) {
       await deleteWebsite(site.id);
       if (selectedSiteId === site.id) {
-        setSelectedSiteId("all");
+        navigateTo(activeTab, "all");
       }
     }
   };
@@ -173,8 +198,7 @@ export function Dashboard() {
               <select
                 value={selectedSiteId}
                 onChange={(e) => {
-                  setSelectedSiteId(e.target.value);
-                  setSelectedSession(null);
+                  navigateTo(activeTab, e.target.value);
                 }}
                 className="appearance-none bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 text-xs font-semibold py-1.5 pl-3 pr-8 rounded-lg cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
@@ -213,7 +237,7 @@ export function Dashboard() {
         <aside className="w-full md:w-60 bg-white border-r border-slate-200 flex flex-col justify-between">
           <nav className="p-3 flex flex-col gap-1">
             <button
-              onClick={() => setActiveTab("chats")}
+              onClick={() => navigateTo("chats", selectedSiteId)}
               className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === "chats"
                   ? "bg-slate-100 text-slate-900 font-semibold"
@@ -230,7 +254,7 @@ export function Dashboard() {
             </button>
 
             <button
-              onClick={() => setActiveTab("websites")}
+              onClick={() => navigateTo("websites", selectedSiteId)}
               className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === "websites"
                   ? "bg-slate-100 text-slate-900 font-semibold"
@@ -247,7 +271,7 @@ export function Dashboard() {
             </button>
 
             <button
-              onClick={() => setActiveTab("customizer")}
+              onClick={() => navigateTo("customizer", selectedSiteId === "all" ? (websites[0]?.id || "all") : selectedSiteId)}
               className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === "customizer"
                   ? "bg-slate-100 text-slate-900 font-semibold"
@@ -296,11 +320,11 @@ export function Dashboard() {
                     </div>
                   ) : (
                     sessions.map((session) => {
-                      const isSelected = selectedSession?.id === session.id;
+                      const isSelected = selectedSession?.id === session.id || urlSessionId === session.id;
                       return (
                         <button
                           key={`${session.merchantId}_${session.id}`}
-                          onClick={() => setSelectedSession(session)}
+                          onClick={() => navigateTo("chats", session.merchantId || selectedSiteId, session.id)}
                           className={`w-full text-left p-3.5 transition-colors duration-150 flex items-center justify-between gap-3 cursor-pointer ${
                             isSelected
                               ? "bg-indigo-50/70 border-l-2 border-indigo-600"
@@ -474,8 +498,7 @@ export function Dashboard() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => {
-                                  setSelectedSiteId(site.id);
-                                  setActiveTab("chats");
+                                  navigateTo("chats", site.id);
                                 }}
                                 className="text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100/70 px-3 py-1.5 rounded-md transition-colors cursor-pointer"
                               >
@@ -483,7 +506,6 @@ export function Dashboard() {
                               </button>
                               <button
                                 onClick={() => {
-                                  setSelectedSiteId(site.id);
                                   setCustomizerSiteId(site.id);
                                   setCustomizerDraft({
                                     ...defaultWidgetConfig,
@@ -492,7 +514,7 @@ export function Dashboard() {
                                     title: site.config?.title || `${site.name} Support`,
                                     ...(site.config || {}),
                                   });
-                                  setActiveTab("customizer");
+                                  navigateTo("customizer", site.id);
                                 }}
                                 className="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 px-3 py-1.5 rounded-md transition-colors cursor-pointer"
                               >
