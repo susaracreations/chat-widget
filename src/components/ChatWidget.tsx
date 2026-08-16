@@ -3,6 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useChat } from "../hooks/useChat";
 import type { WidgetConfig } from "../hooks/useWebsites";
 import { defaultWidgetConfig } from "../hooks/useWebsites";
+import { db, doc, onSnapshot, setDoc, serverTimestamp } from "../utils/firebase";
 
 export interface ChatWidgetProps {
   merchantId?: string;
@@ -40,11 +41,79 @@ export function ChatWidget({
   const { messages, sendMessage } = useChat(user?.uid, merchantId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // CSAT Rating & Session Status State
+  const [sessionStatus, setSessionStatus] = useState<"active" | "closed">("active");
+  const [existingRating, setExistingRating] = useState<number | null>(null);
+  const [selectedStars, setSelectedStars] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+  // Listen to Session status & CSAT
+  useEffect(() => {
+    if (!user || isInlinePreview) return;
+    const sessionDocRef = doc(db, "merchants", merchantId, "sessions", user.uid);
+    const unsub = onSnapshot(sessionDocRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.status === "closed") {
+          setSessionStatus("closed");
+        } else {
+          setSessionStatus("active");
+        }
+        if (data.rating) {
+          setExistingRating(data.rating);
+          setRatingSubmitted(true);
+        }
+      }
+    });
+
+    // Record Visitor Metadata & Co-browsing Context
+    const detectBrowser = () => {
+      const ua = navigator.userAgent;
+      if (ua.includes("Firefox")) return "Firefox";
+      if (ua.includes("Edg")) return "Edge";
+      if (ua.includes("Chrome")) return "Chrome";
+      if (ua.includes("Safari")) return "Safari";
+      return "Browser";
+    };
+
+    const detectOS = () => {
+      const ua = navigator.userAgent;
+      if (ua.includes("Win")) return "Windows";
+      if (ua.includes("Mac")) return "macOS";
+      if (ua.includes("Linux")) return "Linux";
+      if (ua.includes("Android")) return "Android";
+      if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+      return "Unknown OS";
+    };
+
+    const metadata = {
+      pageUrl: window.location.href,
+      pageTitle: document.title || "Live Page",
+      referrer: document.referrer || "Direct Visit",
+      browser: detectBrowser(),
+      os: detectOS(),
+      screen: `${window.screen.width}x${window.screen.height}`,
+      language: navigator.language || "en",
+      sessionStartedAt: serverTimestamp(),
+    };
+
+    setDoc(sessionDocRef, {
+      userId: user.uid,
+      lastActive: serverTimestamp(),
+      platform: window.location.hostname || "local",
+      websiteName: mergedConfig.title,
+      metadata,
+    }, { merge: true }).catch((err) => console.error("Error setting session metadata:", err));
+
+    return unsub;
+  }, [user, merchantId, isInlinePreview, mergedConfig.title]);
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, sessionStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +126,23 @@ export function ChatWidget({
   const handleQuickPromptClick = async (promptText: string) => {
     if (!user) return;
     await sendMessage(promptText, user.uid);
+  };
+
+  const handleRatingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      const sessionDocRef = doc(db, "merchants", merchantId, "sessions", user.uid);
+      await setDoc(sessionDocRef, {
+        rating: selectedStars,
+        ratingFeedback: ratingComment.trim(),
+        ratingSubmittedAt: serverTimestamp(),
+      }, { merge: true });
+      setRatingSubmitted(true);
+      setExistingRating(selectedStars);
+    } catch (err) {
+      console.error("Failed to submit rating:", err);
+    }
   };
 
   // Color Tokens based on light/dark mode
@@ -147,7 +233,7 @@ export function ChatWidget({
     right: "0px",
     width: "8px",
     height: "8px",
-    backgroundColor: "#10b981",
+    backgroundColor: sessionStatus === "closed" ? "#94a3b8" : "#10b981",
     borderRadius: "50%",
     border: `2px solid ${mergedConfig.primaryColor}`,
   };
@@ -300,6 +386,20 @@ export function ChatWidget({
     transition: "transform 0.15s ease",
   };
 
+  // CSAT Rating Card Styles
+  const csatCardStyle: React.CSSProperties = {
+    backgroundColor: isDark ? "#1e293b" : "#ffffff",
+    border: `1px solid ${borderCol}`,
+    borderRadius: `${mergedConfig.borderRadius}px`,
+    padding: "16px",
+    margin: "10px 0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "10px",
+    textAlign: "center",
+  };
+
   if (authLoading && !isInlinePreview) return null;
 
   return (
@@ -320,7 +420,7 @@ export function ChatWidget({
                 {mergedConfig.title}
               </div>
               <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "2px" }}>
-                Active Now
+                {sessionStatus === "closed" ? "Conversation Resolved" : "Active Now"}
               </div>
             </div>
           </div>
@@ -370,40 +470,119 @@ export function ChatWidget({
                   {msg.text}
                 </div>
                 {mergedConfig.showTimestamps && (
-                  <span style={timestampStyle}>Just now</span>
+                  <span style={timestampStyle}>
+                    {msg.timestamp?.toDate ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                  </span>
                 )}
               </div>
             );
           })}
+
+          {/* CSAT Customer Satisfaction Prompt when chat is closed */}
+          {sessionStatus === "closed" && (
+            <div style={csatCardStyle}>
+              <div style={{ fontWeight: 600, fontSize: "13px", color: textMain }}>
+                {ratingSubmitted ? "Thank you for your rating!" : "How would you rate our support?"}
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    disabled={ratingSubmitted}
+                    onClick={() => setSelectedStars(star)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: ratingSubmitted ? "default" : "pointer",
+                      padding: "2px",
+                      color: (existingRating || selectedStars) >= star ? "#f59e0b" : "#cbd5e1",
+                      transition: "transform 0.1s ease",
+                    }}
+                  >
+                    <svg style={{ width: "24px", height: "24px" }} fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+
+              {!ratingSubmitted ? (
+                <form onSubmit={handleRatingSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                  <input
+                    type="text"
+                    placeholder="Optional feedback..."
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    style={{
+                      border: `1px solid ${borderCol}`,
+                      borderRadius: "8px",
+                      padding: "6px 10px",
+                      fontSize: "12px",
+                      backgroundColor: bgMain,
+                      color: textMain,
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      backgroundColor: mergedConfig.primaryColor,
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Submit Rating
+                  </button>
+                </form>
+              ) : (
+                <p style={{ fontSize: "11px", color: textMuted }}>
+                  Your feedback helps us provide better service.
+                </p>
+              )}
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input Footer */}
-        <form style={inputFormStyle} onSubmit={handleSubmit}>
-          <input
-            type="text"
-            style={inputStyle}
-            placeholder="Write a message..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-          />
-          <button type="submit" style={sendButtonStyle} aria-label="Send message">
-            <svg style={{ width: "15px", height: "15px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-            </svg>
-          </button>
-        </form>
+        {sessionStatus !== "closed" ? (
+          <form style={inputFormStyle} onSubmit={handleSubmit}>
+            <input
+              type="text"
+              style={inputStyle}
+              placeholder="Write a message..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+            />
+            <button type="submit" style={sendButtonStyle} aria-label="Send message">
+              <svg style={{ width: "15px", height: "15px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </button>
+          </form>
+        ) : (
+          <div style={{ padding: "12px", borderTop: `1px solid ${borderCol}`, backgroundColor: bgMain, textAlign: "center", fontSize: "12px", color: textMuted }}>
+            This conversation is resolved.
+          </div>
+        )}
       </div>
 
       {/* Floating Launcher Button */}
       {!isInlinePreview && (
         mergedConfig.launcherStyle === "pill" ? (
           <button 
-            style={pillLauncherStyle}
+            style={pillLauncherStyle} 
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Toggle chat"
           >
-            <span style={{ width: "8px", height: "8px", backgroundColor: "#10b981", borderRadius: "50%" }} />
+            <span style={{ width: "8px", height: "8px", backgroundColor: sessionStatus === "closed" ? "#94a3b8" : "#10b981", borderRadius: "50%" }} />
             <span>{isOpen ? "Close chat" : mergedConfig.launcherText || "Chat with us"}</span>
           </button>
         ) : (

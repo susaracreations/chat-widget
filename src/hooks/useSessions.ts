@@ -9,6 +9,18 @@ import {
 } from "../utils/firebase";
 import type { Website } from "./useWebsites";
 
+export interface VisitorMetadata {
+  pageUrl?: string;
+  pageTitle?: string;
+  referrer?: string;
+  browser?: string;
+  os?: string;
+  device?: string;
+  screen?: string;
+  language?: string;
+  sessionStartedAt?: any;
+}
+
 export interface Session {
   id: string;
   userId: string;
@@ -16,6 +28,11 @@ export interface Session {
   platform: string;
   merchantId: string;
   websiteName?: string;
+  status?: "active" | "closed";
+  rating?: number; // 1-5
+  ratingFeedback?: string;
+  ratingSubmittedAt?: any;
+  metadata?: VisitorMetadata;
 }
 
 export function useSessions(merchantId: string = appId, websites: Website[] = []) {
@@ -53,6 +70,16 @@ export function useSessions(merchantId: string = appId, websites: Website[] = []
                 platform: data.platform || site.domain || "unknown",
                 merchantId: site.id,
                 websiteName: site.name,
+                status: data.status || "active",
+                rating: data.rating,
+                ratingFeedback: data.ratingFeedback,
+                ratingSubmittedAt: data.ratingSubmittedAt,
+                metadata: data.metadata || {
+                  pageUrl: data.pageUrl || window.location.href,
+                  browser: data.browser || "Chrome",
+                  os: data.os || "Windows",
+                  language: data.language || "en",
+                },
               });
             });
             siteSessionsMap[site.id] = siteSessions;
@@ -95,6 +122,16 @@ export function useSessions(merchantId: string = appId, websites: Website[] = []
               platform: data.platform || siteInfo?.domain || "unknown",
               merchantId: merchantId,
               websiteName: siteInfo?.name || "Current Site",
+              status: data.status || "active",
+              rating: data.rating,
+              ratingFeedback: data.ratingFeedback,
+              ratingSubmittedAt: data.ratingSubmittedAt,
+              metadata: data.metadata || {
+                pageUrl: data.pageUrl || window.location.href,
+                browser: data.browser || "Chrome",
+                os: data.os || "Windows",
+                language: data.language || "en",
+              },
             });
           });
           setSessions(activeSessions);

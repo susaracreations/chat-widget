@@ -23,8 +23,14 @@ import {
   Sun,
   Moon,
   Sparkles,
-  Eye
+  Eye,
+  Laptop,
+  Compass,
+  Star,
+  CheckCircle,
+  ExternalLink
 } from "lucide-react";
+import { db, doc, updateDoc } from "../utils/firebase";
 
 export function Dashboard() {
   const { tab: urlTab, siteId: urlSiteId, sessionId: urlSessionId } = useParams<{ tab?: string; siteId?: string; sessionId?: string }>();
@@ -373,68 +379,206 @@ export function Dashboard() {
                             <span className="text-[10px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200">
                               {selectedSession.websiteName || selectedSession.merchantId}
                             </span>
+                            {selectedSession.status === "closed" ? (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                <span>Resolved</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-semibold px-2 py-0.5 rounded">
+                                Active Chat
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-slate-400 mt-0.5">
                             Domain: {selectedSession.platform}
                           </p>
                         </div>
                       </div>
+
+                      {/* Header Actions */}
+                      <div className="flex items-center gap-2">
+                        {selectedSession.status === "closed" ? (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const ref = doc(db, "merchants", selectedSession.merchantId, "sessions", selectedSession.userId);
+                                await updateDoc(ref, { status: "active" });
+                              } catch (err) {
+                                console.error("Error reopening chat:", err);
+                              }
+                            }}
+                            className="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer transition-colors"
+                          >
+                            Reopen Chat
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const ref = doc(db, "merchants", selectedSession.merchantId, "sessions", selectedSession.userId);
+                                await updateDoc(ref, { status: "closed" });
+                              } catch (err) {
+                                console.error("Error closing chat:", err);
+                              }
+                            }}
+                            className="text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Resolve & Prompt CSAT</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Messages Scroll Area */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                      {messages.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                          No messages yet in this session.
-                        </div>
-                      ) : (
-                        messages.map((msg) => {
-                          const isMerchant = msg.sender === user?.uid;
-                          const formattedTime = msg.timestamp?.toDate
-                            ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : "Just now";
+                    <div className="flex-1 flex flex-col md:flex-row min-h-0">
+                      {/* Main Message History & Input */}
+                      <div className="flex-1 flex flex-col min-h-0">
+                        {/* Messages Scroll Area */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                          {messages.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                              No messages yet in this session.
+                            </div>
+                          ) : (
+                            messages.map((msg) => {
+                              const isMerchant = msg.sender === user?.uid;
+                              const formattedTime = msg.timestamp?.toDate
+                                ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : "Just now";
 
-                          return (
-                            <div key={msg.id} className={`flex flex-col ${isMerchant ? "items-end" : "items-start"}`}>
-                              <div className="flex items-center gap-1.5 mb-1 px-1">
-                                <span className={`text-[10px] font-semibold ${isMerchant ? "text-indigo-600" : "text-slate-500"}`}>
-                                  {isMerchant ? "You (Support Agent)" : `Visitor (${selectedSession.userId.substring(0, 6)}...)`}
-                                </span>
-                                <span className="text-[10px] text-slate-400">•</span>
-                                <span className="text-[10px] text-slate-400 font-mono">{formattedTime}</span>
-                              </div>
-                              <div
-                                className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed ${
-                                  isMerchant
-                                    ? "bg-indigo-600 text-white font-normal rounded-tr-xs"
-                                    : "bg-white text-slate-800 border border-slate-200 rounded-tl-xs shadow-xs"
-                                }`}
-                              >
-                                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                              return (
+                                <div key={msg.id} className={`flex flex-col ${isMerchant ? "items-end" : "items-start"}`}>
+                                  <div className="flex items-center gap-1.5 mb-1 px-1">
+                                    <span className={`text-[10px] font-semibold ${isMerchant ? "text-indigo-600" : "text-slate-500"}`}>
+                                      {isMerchant ? "You (Support Agent)" : `Visitor (${selectedSession.userId.substring(0, 6)}...)`}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">•</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">{formattedTime}</span>
+                                  </div>
+                                  <div
+                                    className={`max-w-[75%] px-4 py-2.5 rounded-xl text-xs leading-relaxed ${
+                                      isMerchant
+                                        ? "bg-indigo-600 text-white font-normal rounded-tr-xs"
+                                        : "bg-white text-slate-800 border border-slate-200 rounded-tl-xs shadow-xs"
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Reply Form */}
+                        <form onSubmit={handleSendReply} className="p-3.5 bg-white border-t border-slate-200 flex gap-2.5">
+                          <input
+                            type="text"
+                            placeholder={selectedSession.status === "closed" ? "Session is resolved. Reply to reopen..." : "Type response to visitor..."}
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                          />
+                          <button
+                            type="submit"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Send</span>
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Co-Browsing & Live Visitor Info Sidebar */}
+                      <div className="w-full md:w-72 bg-white border-l border-slate-200 p-4 flex flex-col gap-4 overflow-y-auto">
+                        <div className="border-b border-slate-100 pb-3">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Live Visitor Context</span>
+                          </h4>
+                        </div>
+
+                        {/* CSAT Rating Info Card */}
+                        {selectedSession.rating ? (
+                          <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-amber-800">Customer Rating</span>
+                              <div className="flex items-center text-amber-500">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-3.5 h-3.5 ${star <= (selectedSession.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+                                  />
+                                ))}
                               </div>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
+                            {selectedSession.ratingFeedback && (
+                              <p className="text-xs text-amber-900 italic font-normal">
+                                "{selectedSession.ratingFeedback}"
+                              </p>
+                            )}
+                          </div>
+                        ) : selectedSession.status === "closed" ? (
+                          <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-center text-xs text-slate-500">
+                            Awaiting customer feedback
+                          </div>
+                        ) : null}
 
-                    {/* Reply Form */}
-                    <form onSubmit={handleSendReply} className="p-3.5 bg-white border-t border-slate-200 flex gap-2.5">
-                      <input
-                        type="text"
-                        placeholder="Type response to visitor..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs outline-none focus:border-indigo-500 focus:bg-white transition-colors"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Send</span>
-                      </button>
-                    </form>
+                        {/* Co-browsing Metadata List */}
+                        <div className="space-y-3 text-xs">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Webpage</span>
+                            <div className="mt-1 flex items-start gap-1.5 text-slate-700 bg-slate-50 p-2 rounded-md border border-slate-100">
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                              <a
+                                href={selectedSession.metadata?.pageUrl || "#"}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-indigo-600 hover:underline break-all font-mono"
+                              >
+                                {selectedSession.metadata?.pageUrl || selectedSession.platform}
+                              </a>
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Browser & Device</span>
+                            <div className="mt-1 flex items-center gap-2 text-slate-700">
+                              <Laptop className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-medium text-[11px]">
+                                {selectedSession.metadata?.browser || "Browser"} on {selectedSession.metadata?.os || "Windows"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {selectedSession.metadata?.screen && (
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Screen Resolution</span>
+                              <div className="mt-1 text-slate-600 font-mono text-[11px]">
+                                {selectedSession.metadata.screen}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedSession.metadata?.language && (
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Language</span>
+                              <div className="mt-1 text-slate-600 uppercase font-mono text-[11px]">
+                                {selectedSession.metadata.language}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tenant / Website</span>
+                            <div className="mt-1 text-slate-700 font-medium text-[11px]">
+                              {selectedSession.websiteName || selectedSession.merchantId}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">

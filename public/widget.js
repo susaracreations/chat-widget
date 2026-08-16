@@ -95,6 +95,26 @@
     };
   }
 
+  // Helper detect browser & OS
+  function detectBrowser() {
+    const ua = navigator.userAgent;
+    if (ua.includes("Firefox")) return "Firefox";
+    if (ua.includes("Edg")) return "Edge";
+    if (ua.includes("Chrome")) return "Chrome";
+    if (ua.includes("Safari")) return "Safari";
+    return "Browser";
+  }
+
+  function detectOS() {
+    const ua = navigator.userAgent;
+    if (ua.includes("Win")) return "Windows";
+    if (ua.includes("Mac")) return "macOS";
+    if (ua.includes("Linux")) return "Linux";
+    if (ua.includes("Android")) return "Android";
+    if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+    return "Unknown OS";
+  }
+
   // Build UI Elements
   async function mountWidget() {
     // Avoid double mounting
@@ -171,11 +191,11 @@
           <svg style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
-          <span style="position:absolute;bottom:0;right:0;width:8px;height:8px;background-color:#10b981;border-radius:50%;border:2px solid ${config.primaryColor};"></span>
+          <span id="sc-status-indicator" style="position:absolute;bottom:0;right:0;width:8px;height:8px;background-color:#10b981;border-radius:50%;border:2px solid ${config.primaryColor};"></span>
         </div>
         <div>
           <div style="font-weight:600;font-size:14px;line-height:1.2;color:#ffffff;">${config.title}</div>
-          <div style="font-size:11px;opacity:0.85;margin-top:2px;color:#ffffff;">Active Now</div>
+          <div id="sc-status-text" style="font-size:11px;opacity:0.85;margin-top:2px;color:#ffffff;">Active Now</div>
         </div>
       </div>
       <button id="sc-close-btn" style="background:none;border:none;color:#ffffff;cursor:pointer;opacity:0.85;padding:4px;display:flex;align-items:center;justify-content:center;">
@@ -231,8 +251,15 @@
     messageList.style.cssText = `display:flex;flex-direction:column;gap:12px;flex:1;`;
     messagesArea.appendChild(messageList);
 
+    // CSAT Card Container
+    const csatContainer = document.createElement("div");
+    csatContainer.id = "sc-csat-container";
+    csatContainer.style.cssText = `display:none;flex-direction:column;align-items:center;gap:10px;background-color:${bgMain};border:1px solid ${borderCol};border-radius:${rad};padding:14px;margin:8px 0;text-align:center;box-sizing:border-box;`;
+    messagesArea.appendChild(csatContainer);
+
     // Input Form
     const inputForm = document.createElement("form");
+    inputForm.id = "sc-input-form";
     inputForm.style.cssText = `
       display: flex;
       padding: 10px 12px;
@@ -305,7 +332,7 @@
         transition: transform 0.15s ease;
       `;
       launcher.innerHTML = `
-        <span style="width:8px;height:8px;background-color:#10b981;border-radius:50%;"></span>
+        <span id="sc-pill-dot" style="width:8px;height:8px;background-color:#10b981;border-radius:50%;"></span>
         <span id="sc-launcher-text">${config.launcherText || "Chat with us"}</span>
       `;
     } else {
@@ -361,7 +388,7 @@
     launcher.onclick = () => setOpen(!isOpen);
     document.getElementById("sc-close-btn").onclick = () => setOpen(false);
 
-    // Register visitor session in Firestore
+    // Register visitor session & co-browsing metadata in Firestore
     const sessionRef = db
       .collection("merchants")
       .doc(websiteId)
@@ -374,9 +401,86 @@
         lastActive: window.firebase.firestore.FieldValue.serverTimestamp(),
         platform: window.location.hostname || "external-web",
         websiteName: config.title,
+        metadata: {
+          pageUrl: window.location.href,
+          pageTitle: document.title || "Live Site",
+          referrer: document.referrer || "Direct",
+          browser: detectBrowser(),
+          os: detectOS(),
+          screen: `${window.screen.width}x${window.screen.height}`,
+          language: navigator.language || "en",
+        }
       },
       { merge: true }
     );
+
+    // Session Status & CSAT Listener
+    let selectedRating = 5;
+    sessionRef.onSnapshot((docSnap) => {
+      if (!docSnap.exists) return;
+      const data = docSnap.data();
+      const statusIndicator = document.getElementById("sc-status-indicator");
+      const statusText = document.getElementById("sc-status-text");
+      const pillDot = document.getElementById("sc-pill-dot");
+
+      if (data.status === "closed") {
+        if (statusIndicator) statusIndicator.style.backgroundColor = "#94a3b8";
+        if (pillDot) pillDot.style.backgroundColor = "#94a3b8";
+        if (statusText) statusText.innerText = "Conversation Resolved";
+
+        // Show CSAT card
+        csatContainer.style.display = "flex";
+        if (data.rating) {
+          csatContainer.innerHTML = `
+            <div style="font-weight:600;font-size:13px;color:${textMain};">Thank you for rating us!</div>
+            <div style="display:flex;gap:4px;color:#f59e0b;">
+              ${[1, 2, 3, 4, 5].map(s => `<svg style="width:20px;height:20px;" fill="${s <= data.rating ? '#f59e0b' : '#cbd5e1'}" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`).join("")}
+            </div>
+            <p style="font-size:11px;color:${textMuted};margin:0;">Your feedback helps us provide better service.</p>
+          `;
+        } else {
+          csatContainer.innerHTML = `
+            <div style="font-weight:600;font-size:13px;color:${textMain};">How would you rate our support?</div>
+            <div id="sc-star-row" style="display:flex;gap:6px;cursor:pointer;">
+              ${[1, 2, 3, 4, 5].map(s => `<svg data-star="${s}" style="width:24px;height:24px;color:#f59e0b;" fill="#f59e0b" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`).join("")}
+            </div>
+            <input id="sc-rating-input" type="text" placeholder="Optional feedback..." style="width:100%;border:1px solid ${borderCol};border-radius:8px;padding:6px 10px;font-size:12px;background-color:${bgMain};color:${textMain};box-sizing:border-box;outline:none;" />
+            <button id="sc-submit-rating-btn" style="background-color:${config.primaryColor};color:#ffffff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Submit Rating</button>
+          `;
+
+          const starRow = document.getElementById("sc-star-row");
+          if (starRow) {
+            starRow.querySelectorAll("svg").forEach((svg) => {
+              svg.onclick = (e) => {
+                const starVal = parseInt(svg.getAttribute("data-star") || "5", 10);
+                selectedRating = starVal;
+                starRow.querySelectorAll("svg").forEach((s) => {
+                  const val = parseInt(s.getAttribute("data-star") || "0", 10);
+                  s.setAttribute("fill", val <= starVal ? "#f59e0b" : "#cbd5e1");
+                });
+              };
+            });
+          }
+
+          const submitRatingBtn = document.getElementById("sc-submit-rating-btn");
+          if (submitRatingBtn) {
+            submitRatingBtn.onclick = () => {
+              const comment = (document.getElementById("sc-rating-input")?.value || "").trim();
+              sessionRef.update({
+                rating: selectedRating,
+                ratingFeedback: comment,
+                ratingSubmittedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+              });
+            };
+          }
+        }
+      } else {
+        if (statusIndicator) statusIndicator.style.backgroundColor = "#10b981";
+        if (pillDot) pillDot.style.backgroundColor = "#10b981";
+        if (statusText) statusText.innerText = "Active Now";
+        csatContainer.style.display = "none";
+      }
+    });
 
     // Send Message Handler
     async function sendMessage(text) {
@@ -399,6 +503,7 @@
       await sessionRef.set(
         {
           lastActive: window.firebase.firestore.FieldValue.serverTimestamp(),
+          status: "active",
         },
         { merge: true }
       );
